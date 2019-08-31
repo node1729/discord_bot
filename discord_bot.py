@@ -78,11 +78,8 @@ class DiscordBot(discord.Client):
             # example reminder for 09:00 MWF class
             days = ["Mon", "Wed", "Fri"]
             if day_of_week in days and hour == "09" and minute == "00" and second == "00":
-                print("attempting to send reminder")
                 await channel.send("Reminder")
 
-
-            print(current_time)
             await asyncio.sleep(1)
 
 
