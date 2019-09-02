@@ -31,7 +31,8 @@ class DiscordBot(discord.Client):
     async def config_default_channel(self):
         await self.wait_until_ready()
         
-        if not self.get_channel(settings["message_channel"]["default"]): # if the channel is not assigned properly, attempt to assign it to general
+        if not self.get_channel(settings["message_channel"]["default"]): # if the channel is not assigned properly,
+                                                                         # attempt to assign it to general
             channel = discord.utils.get(self.get_all_channels(), name="general")
             if channel:
                 await self.reconfig_channel(channel.id)
@@ -41,7 +42,8 @@ class DiscordBot(discord.Client):
                 channel = next(channel)
                 await self.reconfig_channel(channel.id)
         
-    async def reconfig_channel(self, channel_id, category="message_channel", channel_in="default"): # return True if channel is successfully changed
+    async def reconfig_channel(self, channel_id, category="message_channel", channel_in="default"): # return True if channel 
+                                                                                                    # is successfully changed
         try:
             channel_id = int(channel_id)
         except ValueError:
@@ -70,7 +72,6 @@ class DiscordBot(discord.Client):
     async def command_move(self, command_name, message, channel_in="default"):
         if message.author.guild_permissions.administrator and message.channel.id == settings["commands"][command_name]:
             msg = re.split(" ", message.content, 2)
-            print(msg)
             if len(msg) == 2: # move entire bot to a channel
                 channel_id = msg[1][2:-1]
                 await self.reconfig_channel(channel_id)
@@ -89,7 +90,7 @@ class DiscordBot(discord.Client):
             commands={"!ping ": self.command_pong,
                       "!move ": self.command_move}
             for key in commands:
-                if key not in settings["commands"]:
+                if key[:-1] not in settings["commands"]:
                     await self.reconfig_channel(settings["message_channel"]["default"], "commands", key[:-1])
                     
                 if message.content.startswith(key) or message.content == key[:-1]: # check if message starts with command
