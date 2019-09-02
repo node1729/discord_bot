@@ -14,7 +14,7 @@ try:
 except FileNotFoundError:
     print("building settings.json")
     outfile = open("settings.json", "w")
-    json.dump({"message_channel": -1},outfile, indent=4) 
+    json.dump({"message_channel": {"default": -1}, "commands": {}},outfile, indent=4) 
     outfile.flush()
 settings_file = open("settings.json")
 settings = json.load(settings_file)
@@ -31,16 +31,17 @@ class DiscordBot(discord.Client):
     async def config_default_channel(self):
         await self.wait_until_ready()
         
-        if not self.get_channel(settings["message_channel"]): # if the channel is not assigned properly, attempt to assign it to general
+        if not self.get_channel(settings["message_channel"]["default"]): # if the channel is not assigned properly, attempt to assign it to general
             channel = discord.utils.get(self.get_all_channels(), name="general")
             if channel:
                 await self.reconfig_channel(channel.id)
             else:
                 print("Falling back to first channel in get_all_channels()")
-                channel = self.get_all_channels[0]
+                channel = await self.get_all_channels()
+                channel = next(channel)
                 await self.reconfig_channel(channel.id)
-                
-    async def reconfig_channel(self, channel_id): # return True if channel is successfully changed
+        
+    async def reconfig_channel(self, channel_id, category="message_channel", channel_in="default"): # return True if channel is successfully changed
         try:
             channel_id = int(channel_id)
         except ValueError:
@@ -50,7 +51,7 @@ class DiscordBot(discord.Client):
         if self.get_channel(channel_id):
             channel_id = int(channel_id)
             settings_file = open("settings.json", "w")
-            settings["message_channel"] = channel_id
+            settings[category][channel_in] = channel_id
             json.dump(settings, settings_file, indent=4)
             settings_file.close()
             return True
@@ -62,30 +63,41 @@ class DiscordBot(discord.Client):
     async def on_ready(self):
         print("Logged in as {0}".format(self.user))
 
-    async def command_pong(self, message):
-        await message.channel.send("pong")
+    async def command_pong(self, command_name, message):
+        if message.channel.id == settings["commands"][command_name]:
+            await message.channel.send("pong") 
                         
-    async def command_move(self, message):
-        if message.author.guild_permissions.administrator:
-            msg = re.split(" ", message.content, 1)
-            channel_id = msg[1][2:-1]
-            await self.reconfig_channel(channel_id)
-            await client.get_channel(settings["message_channel"]).send("successfully moved to this channel")
-            
-
+    async def command_move(self, command_name, message, channel_in="default"):
+        if message.author.guild_permissions.administrator and message.channel.id == settings["commands"][command_name]:
+            msg = re.split(" ", message.content, 2)
+            print(msg)
+            if len(msg) == 2: # move entire bot to a channel
+                channel_id = msg[1][2:-1]
+                await self.reconfig_channel(channel_id)
+                for key in settings["commands"]:
+                    await self.reconfig_channel(channel_id, "commands", key)
+                await client.get_channel(settings["message_channel"][channel_in]).send("successfully moved to this channel")            
+                
+            elif len(msg) == 3: # move a single command to a channel
+                channel_id = msg[2][2:-1]
+                command_move = msg[1]
+                await self.reconfig_channel(channel_id, category="commands", channel_in=command_move)
+                
     async def on_message(self, message): 
-        if message.author != self.user and message.channel == self.get_channel(settings["message_channel"]): # ignore messages from the bot 
+        if message.author != self.user: # ignore messages from the bot 
             print("message from {0.author} in {0.channel}: {0.content}".format(message))
             commands={"!ping ": self.command_pong,
                       "!move ": self.command_move}
             for key in commands:
-                print(key)
+                if key not in settings["commands"]:
+                    await self.reconfig_channel(settings["message_channel"]["default"], "commands", key[:-1])
+                    
                 if message.content.startswith(key) or message.content == key[:-1]: # check if message starts with command
-                    await commands[key](message)
+                    await commands[key](key[:-1], message)
 
     async def on_time(self):
-        if self.get_channel(settings["message_channel"]):
-            channel = self.get_channel(settings["message_channel"])
+        if self.get_channel(settings["message_channel"]["default"]):
+            channel = self.get_channel(settings["message_channel"]["default"])
             await channel.send("sample text")
         else:
             print("invalid configuration for automatic messages")
@@ -93,7 +105,7 @@ class DiscordBot(discord.Client):
     async def background_timer(self):
         await self.wait_until_ready()
         
-        channel = self.get_channel(settings["message_channel"])
+        channel = self.get_channel(settings["message_channel"]["default"])
         while not self.is_closed():
             current_time = time.asctime()
             day_of_week = current_time[:3] # Sun, Mon, Tue, Wed, Thu, Fri, Sat
