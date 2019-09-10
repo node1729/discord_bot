@@ -16,10 +16,23 @@ except FileNotFoundError:
     outfile = open("settings.json", "w")
     json.dump({"message_channel": {"default": -1}, "commands": {}},outfile, indent=4) 
     outfile.flush()
+    outfile.close()
 settings_file = open("settings.json")
 settings = json.load(settings_file)
 settings_file.close()
 
+# commands file
+try:
+    open("commands.json")
+except FileNotFoundError:
+    print("building commands.json")
+    outfile = open("commands.json", "w")
+    json.dump({"!ping": {"channel": -1, "return_type": "message", "data": "pong", "indexed": False, "users": "any"}}, outfile, indent=4)
+    outfile.flush()
+    outfile.close()
+commands_file = open("commands.json")
+commands = json.load(commands_file)
+commands_file.close()
 
 class DiscordBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -65,12 +78,11 @@ class DiscordBot(discord.Client):
     async def on_ready(self):
         print("Logged in as {0}".format(self.user))
 
-    async def command_pong(self, command_name, message):
-        if message.channel.id == settings["commands"][command_name]:
-            await message.channel.send("pong") 
+    """async def command_pong(self, message):
+            await message.channel.send("pong")"""
                         
-    async def command_move(self, command_name, message, channel_in="default"):
-        if message.author.guild_permissions.administrator and message.channel.id == settings["commands"][command_name]:
+    async def command_move(self, message, channel_in="default"):
+        if message.author.guild_permissions.administrator:
             msg = re.split(" ", message.content, 2)
             if len(msg) == 2: # move entire bot to a channel
                 channel_id = msg[1][2:-1]
@@ -83,19 +95,59 @@ class DiscordBot(discord.Client):
                 channel_id = msg[2][2:-1]
                 command_move = msg[1]
                 await self.reconfig_channel(channel_id, category="commands", channel_in=command_move)
-                
-    async def on_message(self, message): 
+    
+    #########################################################
+    # begin Functions to handle commands from commands.json # 
+    #########################################################
+    
+    async def command_simple_message(self, key, message, from_file=""): # command for sending a "message" from the commands.json file
+        if ((message.author.guild_permissions.administrator)
+             or (not message.author.guild_permissions.administrator and not commands[key]["admin"])):
+            data = commands[key]["data"]
+            if from_file:
+                data = from_file
+            await client.get_channel(commands[key]["channel"]).send(data)
+    
+    async def command_upload_file(self, key, message, from_file=""): # command for sending a "file" from the commands.json file
+        if ((message.author.guild_permissions.administrator)
+            or (not message.author.guild_permissions.administrator and not commands[key]["admin"])):
+            data = commands[key]["data"]
+            if from_file:
+                data = from_file
+            fp = open(data, "rb")
+            await client.get_channel(commands[key]["channel"]).send(file=discord.File(fp))
+            fp.close()
+            
+#    async def command_add_command(self, key, message):
+        
+        
+    #######################################################
+    # end Functions to handle commands from commands.json #
+    #######################################################
+    
+    async def on_message(self, message): # returns true if command is processed
         if message.author != self.user: # ignore messages from the bot 
             print("message from {0.author} in {0.channel}: {0.content}".format(message))
-            commands={"!ping ": self.command_pong,
-                      "!move ": self.command_move}
-            for key in commands:
-                if key[:-1] not in settings["commands"]:
-                    await self.reconfig_channel(settings["message_channel"]["default"], "commands", key[:-1])
-                    
-                if message.content.startswith(key) or message.content == key[:-1]: # check if message starts with command
-                    await commands[key](key[:-1], message)
+            built_in_commands = {
+                                 #"!move": self.command_move
+                                 }
+            for key in built_in_commands:
+                if message.content.startswith(key + " ") or message.content == key:
+                    await built_in_commands[key](message)
+                    return True
 
+            for key in commands:
+                if message.content.startswith(key + " ") or message.content == key:
+                    if commands[key]["return_type"] == "message":
+                        await self.command_simple_message(key, message)
+                    elif commands[key]["return_type"] == "file":
+                        await self.command_upload_file(key, message)
+                    elif commands[key]["return_type"] == "message_from_file":
+                        await self.command_from_file(key, message, "message")
+                    elif commands[key]["return_type"] == "file_from_file":
+                        await self.command_from_file(key, message, "file")
+            
+                        
     async def on_time(self):
         if self.get_channel(settings["message_channel"]["default"]):
             channel = self.get_channel(settings["message_channel"]["default"])
