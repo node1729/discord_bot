@@ -1,0 +1,30 @@
+{
+    "!file": {
+        "admin": false,
+        "channel": 186656843748212736,
+        "data": "test.png",
+        "indexed": false,
+        "return_type": "file"
+    },
+    "!ping": {
+        "admin": false,
+        "channel": 186656843748212736,
+        "data": "pong",
+        "indexed": false,
+        "return_type": "message"
+    },
+    "!testcom": {
+        "admin": false,
+        "channel": 558422994943213610,
+        "data": "123",
+        "indexed": false,
+        "return_type": "message"
+    },
+    "a": {
+        "admin": false,
+        "channel": 558422994943213610,
+        "data": "a",
+        "indexed": false,
+        "return_type": "message"
+    }
+}

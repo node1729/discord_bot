@@ -1,0 +1,25 @@
+{
+    "command": {
+        "channel": -1,
+        "return_type": [
+            "message",
+            "file",
+            "message_from_file",
+            "image_from_file"
+        ],
+        "data": [
+            "message",
+            "/path/to/file",
+            "/path/to/file",
+            "/path/to/file/files"
+        ],
+        "indexed": [
+            true,
+            false
+        ],
+        "admin": [
+            false,
+            true
+        ]
+    }
+}
